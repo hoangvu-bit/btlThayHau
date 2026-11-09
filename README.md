@@ -126,6 +126,8 @@ Dự án sử dụng cơ chế bảo mật biến môi trường, tuyệt đối
    ```text
    Đã khởi tạo CSDL và nạp dữ liệu mẫu thành công!
    ```
+   còn nếu khởi tảo lần 2 sẽ print("CSDL đã tồn tại và đã có sẵn dữ liệu mẫu!")
+   
    tức là cơ sở dữ liệu đã sẵn sàng.
 
 ### Bước 6: Khởi chạy ứng dụng Web

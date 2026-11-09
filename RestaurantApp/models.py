@@ -78,3 +78,5 @@ if __name__ == '__main__':
                 db.session.add(DiningTable(id=i, name=f"{i:02d}"))
             db.session.commit()
             print("Đã khởi tạo CSDL và nạp dữ liệu mẫu thành công!")
+        else:
+            print("CSDL đã tồn tại và đã có sẵn dữ liệu mẫu!")
