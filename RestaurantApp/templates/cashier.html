@@ -1,0 +1,123 @@
+{% extends 'layout/base.html' %}
+{% block title %}Thanh toán hóa đơn{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <div>
+        <h3 class="text-success mb-0">YÊU CẦU 3: THANH TOÁN HÓA ĐƠN</h3>
+        <p class="text-muted mb-0 small">Tính tiền, áp dụng chiết khấu/thuế và in hóa đơn cho từng bàn.</p>
+    </div>
+</div>
+
+{% if msg %}
+<div class="alert {% if 'thành công' in msg %}alert-success{% else %}alert-warning{% endif %} alert-dismissible fade show no-print shadow-sm" role="alert">
+    <strong>Thông báo:</strong> {{ msg }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+<div class="card shadow-sm border-0 mb-4 no-print">
+    <div class="card-body">
+        <div class="row align-items-center">
+            <div class="col-md-5">
+                <label class="form-label fw-bold">Chọn bàn cần thanh toán:</label>
+                <select class="form-select form-select-lg" onchange="window.location.href='/cashier?table_id=' + this.value">
+                    {% for t in tables %}
+                    <option value="{{ t.id }}" {% if t.id == (selected_table_id | default(1) | int) %}selected{% endif %}>
+                        Bàn {{ t.name }} {% if t.is_occupied %}(🔴 Có khách/Phiếu mở){% else %}(🟢 Bàn trống){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-7 text-md-end mt-3 mt-md-0">
+                <span class="badge bg-light text-secondary border p-2">
+                    <i class="bi bi-info-circle me-1"></i> Chính sách: Giảm 5% nếu tổng món > 500.000 VNĐ, Thuế VAT 10%
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow border-0 print-area mx-auto" style="max-width: 800px;">
+    <div class="card-header bg-success text-white py-3 text-center">
+        <h4 class="mb-0 fw-bold">🧾 HÓA ĐƠN THANH TOÁN</h4>
+        <div class="small opacity-75">BÀN SỐ {{ "%02d"|format(selected_table_id | default(1) | int) }}</div>
+    </div>
+    <div class="card-body p-4">
+        {% if current_order and bill %}
+        <div class="d-flex justify-content-between mb-3 text-muted small border-bottom pb-2">
+            <span><strong>Mã phiếu:</strong> #ORDER-{{ current_order.id }}</span>
+            <span><strong>Thời gian:</strong> {{ current_order.created_date.strftime('%H:%M:%S ngày %d/%m/%Y') if current_order.created_date else '' }}</span>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped text-center align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 50px;">STT</th>
+                        <th class="text-start">Tên món ăn</th>
+                        <th style="width: 90px;">Số lượng</th>
+                        <th style="width: 140px;">Đơn giá</th>
+                        <th style="width: 160px;">Thành tiền</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in current_order.details %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td class="text-start fw-semibold">{{ d.dish.name }}</td>
+                        <td class="fw-bold">{{ d.quantity }}</td>
+                        <td>{{ "{:,.0f}".format(d.unit_price) }} đ</td>
+                        <td class="fw-bold text-dark">{{ "{:,.0f}".format(d.quantity * d.unit_price) }} đ</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="row justify-content-end mt-3">
+            <div class="col-md-7">
+                <ul class="list-group list-group-flush border rounded p-2">
+                    <li class="list-group-item d-flex justify-content-between align-items-center border-0 py-1">
+                        <span class="text-muted">Tổng cộng tiền món:</span>
+                        <strong>{{ "{:,.0f}".format(bill.sub_total) }} VNĐ</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center border-0 py-1 text-danger">
+                        <span>Giảm giá (5% nếu > 500,000 đ):</span>
+                        <strong>-{{ "{:,.0f}".format(bill.discount) }} VNĐ</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center border-0 py-1 text-secondary">
+                        <span>Thuế giá trị gia tăng VAT (10%):</span>
+                        <strong>+{{ "{:,.0f}".format(bill.vat) }} VNĐ</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center border-top border-2 mt-2 pt-2 bg-light">
+                        <span class="fs-5 fw-bold text-success">TỔNG THANH TOÁN:</span>
+                        <span class="fs-4 fw-bold text-success">{{ "{:,.0f}".format(bill.final_total) }} VNĐ</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mt-4 no-print">
+            <button onclick="window.print()" class="btn btn-outline-secondary px-4">
+                <i class="bi bi-printer me-1"></i> In hóa đơn
+            </button>
+            <form method="POST" action="/cashier?table_id={{ selected_table_id | default(1) | int }}" class="m-0" onsubmit="return confirm('Xác nhận thanh toán cho Bàn số {{ selected_table_id | default(1) | int }}?');">
+                <button type="submit" class="btn btn-success px-4 fw-bold shadow-sm">
+                    <i class="bi bi-check-circle me-1"></i> Xác nhận Thanh toán
+                </button>
+            </form>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-receipt-cutoff fs-1 d-block mb-3 text-secondary"></i>
+            <h5>Bàn số {{ "%02d"|format(selected_table_id | default(1) | int) }} hiện không có hóa đơn nào cần thanh toán.</h5>
+            <p class="small text-muted">Hãy chọn bàn đang có khách hoặc chuyển sang màn hình nhận đơn để phục vụ.</p>
+            <a href="/?table_id={{ selected_table_id | default(1) | int }}" class="btn btn-primary btn-sm no-print">
+                <i class="bi bi-plus-circle me-1"></i> Đến màn hình nhận đơn
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,37 @@
+<nav class="navbar navbar-expand-lg bg-dark navbar-dark shadow-sm">
+    <div class="container">
+        <a class="navbar-brand fw-bold text-warning" href="/">🍽️ NHÀ HÀNG GỌI MÓN (ĐỀ TÀI 10)</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                    <a class="nav-link {% if request.path == '/' %}active fw-bold text-warning{% endif %}" href="/">
+                        1. Nhận đơn tại bàn
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.path.startswith('/kitchen') %}active fw-bold text-warning{% endif %}" href="/kitchen">
+                        2. Bếp chế biến
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.path.startswith('/cashier') %}active fw-bold text-warning{% endif %}" href="/cashier">
+                        3. Thanh toán hóa đơn
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.path.startswith('/admin-menu') or request.path.startswith('/admin/menu') %}active fw-bold text-warning{% endif %}" href="/admin-menu">
+                        4. Quản lý thực đơn
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.path.startswith('/stats') %}active fw-bold text-warning{% endif %}" href="/stats">
+                        5. Báo cáo doanh thu
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>

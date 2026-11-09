@@ -1,0 +1,364 @@
+{% extends 'layout/base.html' %}
+{% block title %}Báo cáo doanh thu & Thống kê{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h3 class="text-primary mb-0">YÊU CẦU 5: BÁO CÁO DOANH THU & THỐNG KÊ MÓN ĂN</h3>
+        <p class="text-muted mb-0 small">Thống kê doanh thu và phân tích các món ăn bán chạy từ các hóa đơn đã thanh toán thành công.</p>
+    </div>
+    <button class="btn btn-outline-secondary btn-sm no-print" onclick="window.print()">
+        <i class="bi bi-printer me-1"></i> In báo cáo
+    </button>
+</div>
+
+<!-- KHUNG BỘ LỌC TÌM KIẾM -->
+<div class="card shadow-sm border-0 mb-4 no-print">
+    <div class="card-header bg-light fw-bold text-dark d-flex align-items-center">
+        <i class="bi bi-funnel-fill text-primary me-2"></i> Bộ lọc thống kê doanh thu
+    </div>
+    <div class="card-body">
+        <form method="GET" action="/stats" id="filterForm">
+            <div class="row g-3 align-items-end">
+                <!-- Chọn chế độ lọc -->
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Chế độ lọc:</label>
+                    <select name="filter_type" id="filterTypeSelect" class="form-select" onchange="toggleFilterInputs()">
+                        <option value="all" {% if filter_type == 'all' %}selected{% endif %}>Toàn bộ thời gian</option>
+                        <option value="date" {% if filter_type == 'date' %}selected{% endif %}>Theo ngày cụ thể</option>
+                        <option value="month" {% if filter_type == 'month' %}selected{% endif %}>Theo tháng và năm</option>
+                    </select>
+                </div>
+
+                <!-- Lọc theo ngày cụ thể -->
+                <div class="col-md-3" id="dateFilterDiv" style="display: {% if filter_type == 'date' %}block{% else %}none{% endif %};">
+                    <label class="form-label fw-bold">Chọn ngày:</label>
+                    <input type="date" name="date" class="form-control" value="{{ current_date }}">
+                </div>
+
+                <!-- Lọc theo tháng -->
+                <div class="col-md-3" id="monthFilterDiv" style="display: {% if filter_type == 'month' %}block{% else %}none{% endif %};">
+                    <label class="form-label fw-bold">Chọn tháng:</label>
+                    <select name="month" class="form-select">
+                        {% for m in range(1, 13) %}
+                        <option value="{{ m }}" {% if current_month == m %}selected{% endif %}>Tháng {{ "%02d"|format(m) }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Lọc theo năm -->
+                <div class="col-md-3" id="yearFilterDiv" style="display: {% if filter_type == 'month' %}block{% else %}none{% endif %};">
+                    <label class="form-label fw-bold">Năm:</label>
+                    <input type="number" name="year" class="form-control" value="{{ current_year }}" min="2000" max="2100">
+                </div>
+
+                <!-- Nút thao tác -->
+                <div class="col-md-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary fw-bold flex-grow-1">
+                        <i class="bi bi-search me-1"></i> Xem báo cáo
+                    </button>
+                    <a href="/stats" class="btn btn-outline-secondary" title="Đặt lại">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+    <div class="card-footer bg-light py-2 small text-muted">
+        <i class="bi bi-info-circle me-1"></i> Đang hiển thị:
+        <strong>
+            {% if filter_type == 'date' and current_date %}
+                Ngày {{ current_date }}
+            {% elif filter_type == 'month' and current_month and current_year %}
+                Tháng {{ current_month }}/{{ current_year }}
+            {% else %}
+                Tất cả thời gian
+            {% endif %}
+        </strong>
+    </div>
+</div>
+
+<!-- 3 THẺ TỔNG QUAN DOANH THU -->
+<div class="row g-3 mb-4">
+    <!-- Thẻ 1: Tổng doanh thu -->
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 bg-success text-white h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-white-50 text-uppercase fw-semibold small">Tổng doanh thu thực nhận</div>
+                        <h2 class="fw-bold mb-1">{{ "{:,.0f}".format(revenue_stats.total_revenue) }} VNĐ</h2>
+                    </div>
+                    <div class="p-3 bg-white bg-opacity-25 rounded-circle">
+                        <i class="bi bi-cash-stack fs-2"></i>
+                    </div>
+                </div>
+                <div class="mt-2 pt-2 border-top border-white border-opacity-25 small opacity-75">
+                    Tiền món: {{ "{:,.0f}".format(revenue_stats.total_sub_total) }} đ |
+                    Giảm: -{{ "{:,.0f}".format(revenue_stats.total_discount) }} đ |
+                    VAT: +{{ "{:,.0f}".format(revenue_stats.total_vat) }} đ
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Thẻ 2: Tổng số hóa đơn -->
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 bg-primary text-white h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-white-50 text-uppercase fw-semibold small">Hóa đơn đã thanh toán</div>
+                        <h2 class="fw-bold mb-1">{{ revenue_stats.total_orders }}</h2>
+                    </div>
+                    <div class="p-3 bg-white bg-opacity-25 rounded-circle">
+                        <i class="bi bi-receipt fs-2"></i>
+                    </div>
+                </div>
+                <div class="mt-2 pt-2 border-top border-white border-opacity-25 small opacity-75">
+                    Áp dụng trạng thái: PAID (Đã hoàn tất thanh toán)
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Thẻ 3: Tổng số lượng món bán -->
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 bg-warning text-dark h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-dark-50 text-uppercase fw-semibold small">Tổng món ăn đã phục vụ</div>
+                        <h2 class="fw-bold mb-1">{{ revenue_stats.total_items }} phần</h2>
+                    </div>
+                    <div class="p-3 bg-dark bg-opacity-10 rounded-circle">
+                        <i class="bi bi-egg-fried fs-2"></i>
+                    </div>
+                </div>
+                <div class="mt-2 pt-2 border-top border-dark border-opacity-25 small text-muted">
+                    Tính trên tất cả các đơn hàng đã thanh toán
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- NỘI DUNG CHI TIẾT: BẢNG TOP MÓN VÀ BIỂU ĐỒ TRÒN CHART.JS -->
+<div class="row g-4">
+    <!-- Cột trái: Bảng xếp hạng Top món ăn bán chạy -->
+    <div class="col-lg-7">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center py-3">
+                <span><i class="bi bi-trophy-fill text-warning me-2"></i> Top món ăn bán chạy nhất</span>
+                <span class="badge bg-warning text-dark">{{ top_dishes|length }} món hàng đầu</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover text-center align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 50px;">Hạng</th>
+                                <th style="width: 90px;">Mã món</th>
+                                <th class="text-start">Tên món ăn</th>
+                                <th style="width: 80px;">SL bán</th>
+                                <th style="width: 140px;">Doanh thu</th>
+                                <th style="width: 130px;">Tỷ lệ (%)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if top_dishes and top_dishes|length > 0 %}
+                                {% for d in top_dishes %}
+                                <tr>
+                                    <td>
+                                        {% if loop.index == 1 %}
+                                            <span class="badge bg-warning text-dark fs-6">🥇 1</span>
+                                        {% elif loop.index == 2 %}
+                                            <span class="badge bg-secondary fs-6">🥈 2</span>
+                                        {% elif loop.index == 3 %}
+                                            <span class="badge bg-danger fs-6">🥉 3</span>
+                                        {% else %}
+                                            <span class="text-muted fw-bold">#{{ loop.index }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><span class="badge bg-light text-dark border font-monospace">{{ d.dish_code }}</span></td>
+                                    <td class="text-start">
+                                        <div class="fw-bold text-dark">{{ d.name }}</div>
+                                        <small class="text-muted">{{ d.category_name }}</small>
+                                    </td>
+                                    <td class="fw-bold text-primary">{{ d.quantity }}</td>
+                                    <td class="fw-bold text-success">{{ "{:,.0f}".format(d.revenue) }} đ</td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-1">
+                                            <div class="progress flex-grow-1" style="height: 8px;">
+                                                <div class="progress-bar bg-success" role="progressbar" style="width: {{ d.percentage }}%;"></div>
+                                            </div>
+                                            <small class="fw-semibold text-muted" style="min-width: 40px;">{{ d.percentage }}%</small>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-muted py-5">
+                                        <i class="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
+                                        Chưa có dữ liệu món ăn bán ra trong khoảng thời gian này.
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer bg-light text-muted small py-2">
+                * Tỷ lệ phần trăm (%) được tính dựa trên doanh thu của món so với tổng doanh thu các món bán được trong kỳ.
+            </div>
+        </div>
+    </div>
+
+    <!-- Cột phải: Biểu đồ tròn Chart.js -->
+    <div class="col-lg-5">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-primary text-white fw-bold d-flex justify-content-between align-items-center py-3">
+                <span><i class="bi bi-pie-chart-fill me-2"></i> Biểu đồ cơ cấu món bán chạy</span>
+                <div class="btn-group btn-group-sm">
+                    <button type="button" class="btn btn-light btn-sm fw-bold active" id="btnChartRevenue" onclick="switchChartMode('revenue')">Doanh thu</button>
+                    <button type="button" class="btn btn-outline-light btn-sm fw-bold" id="btnChartQty" onclick="switchChartMode('quantity')">Số lượng</button>
+                </div>
+            </div>
+            <div class="card-body d-flex flex-column justify-content-center align-items-center p-4">
+                {% if top_dishes and top_dishes|length > 0 %}
+                    <div style="width: 100%; max-width: 380px; position: relative;">
+                        <canvas id="dishPieChart"></canvas>
+                    </div>
+                    <div class="text-center mt-3 text-muted small" id="chartCaption">
+                        Tỷ lệ doanh thu giữa các món ăn hàng đầu
+                    </div>
+                {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-bar-chart fs-1 d-block mb-2 text-secondary"></i>
+                        <p class="mb-0">Chưa có dữ liệu để vẽ biểu đồ.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Nhúng thư viện Chart.js qua CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    // Hàm ẩn/hiện trường lọc tương ứng với chế độ lọc
+    function toggleFilterInputs() {
+        const type = document.getElementById('filterTypeSelect').value;
+        const dateDiv = document.getElementById('dateFilterDiv');
+        const monthDiv = document.getElementById('monthFilterDiv');
+        const yearDiv = document.getElementById('yearFilterDiv');
+
+        if (type === 'date') {
+            dateDiv.style.display = 'block';
+            monthDiv.style.display = 'none';
+            yearDiv.style.display = 'none';
+        } else if (type === 'month') {
+            dateDiv.style.display = 'none';
+            monthDiv.style.display = 'block';
+            yearDiv.style.display = 'block';
+        } else {
+            dateDiv.style.display = 'none';
+            monthDiv.style.display = 'none';
+            yearDiv.style.display = 'none';
+        }
+    }
+
+    {% if top_dishes and top_dishes|length > 0 %}
+    // Chuẩn bị dữ liệu cho Chart.js
+    const dishLabels = {{ top_dishes | map(attribute='name') | list | tojson }};
+    const dishRevenues = {{ top_dishes | map(attribute='revenue') | list | tojson }};
+    const dishQuantities = {{ top_dishes | map(attribute='quantity') | list | tojson }};
+
+    const chartColors = [
+        '#0d6efd', '#198754', '#ffc107', '#dc3545', '#0dcaf0',
+        '#6610f2', '#fd7e14', '#20c997', '#6f42c1', '#d63384'
+    ];
+
+    let currentMode = 'revenue';
+    let myPieChart = null;
+
+    const ctx = document.getElementById('dishPieChart').getContext('2d');
+
+    function renderPieChart(mode) {
+        const dataValues = (mode === 'revenue') ? dishRevenues : dishQuantities;
+        const labelText = (mode === 'revenue') ? 'Doanh thu (VNĐ)' : 'Số lượng bán (phần)';
+
+        if (myPieChart) {
+            myPieChart.destroy();
+        }
+
+        myPieChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: dishLabels,
+                datasets: [{
+                    label: labelText,
+                    data: dataValues,
+                    backgroundColor: chartColors.slice(0, dishLabels.length),
+                    borderWidth: 2,
+                    hoverOffset: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            boxWidth: 14,
+                            padding: 15,
+                            font: { size: 12 }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const val = context.raw || 0;
+                                if (currentMode === 'revenue') {
+                                    return ` ${context.label}: ${val.toLocaleString('vi-VN')} VNĐ`;
+                                } else {
+                                    return ` ${context.label}: ${val} phần`;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function switchChartMode(mode) {
+        currentMode = mode;
+        const btnRev = document.getElementById('btnChartRevenue');
+        const btnQty = document.getElementById('btnChartQty');
+        const caption = document.getElementById('chartCaption');
+
+        if (mode === 'revenue') {
+            btnRev.className = 'btn btn-light btn-sm fw-bold active';
+            btnQty.className = 'btn btn-outline-light btn-sm fw-bold';
+            caption.innerText = 'Tỷ lệ doanh thu giữa các món ăn hàng đầu';
+        } else {
+            btnQty.className = 'btn btn-light btn-sm fw-bold active';
+            btnRev.className = 'btn btn-outline-light btn-sm fw-bold';
+            caption.innerText = 'Tỷ lệ số lượng tiêu thụ giữa các món ăn hàng đầu';
+        }
+
+        renderPieChart(mode);
+    }
+
+    // Khởi tạo biểu đồ mặc định theo doanh thu
+    renderPieChart('revenue');
+    {% endif %}
+</script>
+{% endblock %}
+

@@ -1,0 +1,231 @@
+{% extends 'layout/base.html' %}
+{% block title %}Nhận đơn tại bàn{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h3 class="text-primary mb-0">YÊU CẦU 1: NHẬN ĐƠN HÀNG TẠI BÀN</h3>
+        <p class="text-muted mb-0 small">Nhân viên phục vụ chọn bàn và ghi nhận món ăn theo yêu cầu của khách.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-success-subtle text-success border border-success d-flex align-items-center gap-1">
+            <span class="spinner-grow spinner-grow-sm text-success" role="status" style="width: 0.7rem; height: 0.7rem;"></span>
+            Đồng bộ thời gian thực với Bếp
+        </span>
+        <button class="btn btn-outline-primary btn-sm" onclick="location.reload()">
+            🔄 Làm mới
+        </button>
+    </div>
+</div>
+
+{% if err_msg %}
+<div class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
+    <strong>Lỗi:</strong> {{ err_msg }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+<!-- Thông báo nổi bật khi Bếp chế biến xong món ăn -->
+{% set done_items = [] %}
+{% if current_order and current_order.details %}
+    {% for d in current_order.details %}
+        {% if d.kitchen_status.name == 'DONE' and d.dish.category.is_kitchen %}
+            {% set _ = done_items.append(d) %}
+        {% endif %}
+    {% endfor %}
+{% endif %}
+
+<div id="kitchen-alert-box" class="{% if done_items|length == 0 %}d-none{% endif %}">
+    <div class="alert alert-success border-2 border-success alert-dismissible fade show shadow-sm d-flex align-items-center mb-4" role="alert">
+        <i class="bi bi-bell-fill fs-2 text-success me-3 animate__animated animate__tada"></i>
+        <div class="flex-grow-1">
+            <h5 class="alert-heading fw-bold mb-1 text-success">
+                🔔 BẾP ĐÃ NẤU XONG MÓN ĂN - SẴN SÀNG PHỤC VỤ!
+            </h5>
+            <div id="kitchen-alert-content" class="mb-0">
+                Các món đã nấu xong cho <strong>Bàn {{ "%02d"|format(selected_table_id | default(1) | int) }}</strong>:
+                {% for item in done_items %}
+                    <span class="badge bg-success fs-6 me-1">✓ {{ item.dish.name }} (SL: {{ item.quantity }})</span>
+                {% endfor %}
+                <div class="text-danger fw-bold mt-1 small">👉 Nhân viên phục vụ hãy mang món ra bàn cho khách ngay!</div>
+            </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+</div>
+
+<!-- Toast Container để nhận thông báo real-time -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080;">
+    <div id="liveToast" class="toast align-items-center text-white bg-success border-0 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body fs-6" id="toastMessage">
+                🔔 Món ăn đã được Bếp nấu xong!
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Cột trái: Form gọi món -->
+    <div class="col-md-5">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-primary text-white fw-bold d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-plus-circle me-1"></i> Ghi nhận món khách gọi</span>
+                <span class="badge bg-white text-primary">Bàn {{ "%02d"|format(selected_table_id | default(1) | int) }}</span>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="/">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Chọn bàn phục vụ:</label>
+                        <select name="table_id" class="form-select form-select-lg" onchange="window.location.href='/?table_id=' + this.value">
+                            {% for t in tables %}
+                            <option value="{{ t.id }}" {% if t.id == (selected_table_id | default(1) | int) %}selected{% endif %}>
+                                Bàn {{ t.name }} {% if t.is_occupied %}(🔴 Đang có khách/Mở phiếu){% else %}(🟢 Bàn trống){% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Chọn món ăn:</label>
+                        <select name="dish_id" class="form-select" required>
+                            <option value="" disabled selected>-- Chọn món trong thực đơn --</option>
+                            {% for d in dishes %}
+                            <option value="{{ d.id }}">
+                                {{ d.code }} - {{ d.name }} [{{ "{:,.0f}".format(d.price) }} VNĐ] ({{ d.category.name }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Số lượng:</label>
+                        <input type="number" name="quantity" class="form-control" value="1" min="1" required>
+                        <small class="text-muted">Nếu món đã có trong phiếu, số lượng sẽ tự động được cộng dồn.</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Ghi chú cho bếp (nếu có):</label>
+                        <input type="text" name="note" class="form-control" placeholder="VD: Ít cay, không hành, mang ra trước...">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold shadow-sm">
+                        <i class="bi bi-check2-circle me-1"></i> Ghi nhận vào phiếu
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cột phải: Biểu mẫu phiếu gọi món đúng chuẩn đề bài -->
+    <div class="col-md-7">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-receipt me-1"></i> BIỂU MẪU PHIẾU GỌI MÓN (BÀN SỐ {{ "%02d"|format(selected_table_id | default(1) | int) }})</span>
+                {% if current_order %}
+                    <span class="badge bg-warning text-dark">Phiếu đang mở (#{{ current_order.id }})</span>
+                {% else %}
+                    <span class="badge bg-secondary">Chưa có phiếu</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover text-center align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 50px;">STT</th>
+                                <th style="width: 80px;">Bàn số</th>
+                                <th>Món ăn</th>
+                                <th style="width: 80px;">SL</th>
+                                <th>Ghi chú</th>
+                                <th style="width: 170px;">Trạng thái bếp</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if current_order and current_order.details and current_order.details|length > 0 %}
+                                {% for d in current_order.details %}
+                                <tr>
+                                    <td>{{ loop.index }}</td>
+                                    <td class="fw-bold">{{ "%02d"|format(selected_table_id | default(1) | int) }}</td>
+                                    <td class="text-start fw-semibold text-dark">{{ d.dish.name }}</td>
+                                    <td class="fw-bold fs-6 text-primary">{{ d.quantity }}</td>
+                                    <td class="small text-muted fst-italic">{{ d.note if d.note else '-' }}</td>
+                                    <td>
+                                        {% if d.kitchen_status.name == 'DONE' %}
+                                            <span class="badge bg-success py-2 px-2 w-100">
+                                                <i class="bi bi-check-circle-fill"></i> Sẵn sàng mang ra!
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-warning text-dark py-2 px-2 w-100">
+                                                <i class="bi bi-hourglass-split"></i> Đang nấu
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="6" class="py-4 text-center text-muted">
+                                        <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                                        Bàn số {{ "%02d"|format(selected_table_id | default(1) | int) }} hiện chưa có phiếu gọi món nào.
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="alert alert-light border mt-3 mb-0 small text-muted">
+                    <i class="bi bi-info-circle-fill text-primary me-1"></i>
+                    <strong>Quy định hệ thống:</strong> Mỗi bàn chỉ có 1 phiếu mở (OPEN) cùng lúc. Khi gọi trùng món trong cùng phiếu, hệ thống tự động cộng dồn số lượng thay vì tạo dòng mới.
+                </div>
+
+                {% if current_order and current_order.details %}
+                <div class="mt-3 text-end">
+                    <a href="/cashier?table_id={{ selected_table_id | default(1) | int }}" class="btn btn-outline-success fw-bold">
+                        <i class="bi bi-credit-card me-1"></i> Chuyển sang Thanh toán
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Cơ chế Polling thời gian thực kiểm tra cập nhật từ Bếp
+    const currentTableId = {{ selected_table_id | default(1) | int }};
+    let lastDoneCount = {{ done_items|length }};
+
+    function pollKitchenUpdates() {
+        fetch(`/api/table/${currentTableId}/status`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.has_order) {
+                    if (data.done_items_count > lastDoneCount) {
+                        lastDoneCount = data.done_items_count;
+                        // Hiển thị toast thông báo nổi bật
+                        const toastEl = document.getElementById('liveToast');
+                        const toastMsg = document.getElementById('toastMessage');
+                        if (toastEl && toastMsg) {
+                            toastMsg.innerHTML = `🔔 <strong>Bếp vừa nấu xong món!</strong><br>Vui lòng mang món ra Bàn ${String(currentTableId).padStart(2, '0')} ngay!`;
+                            const toast = new bootstrap.Toast(toastEl, { delay: 6000 });
+                            toast.show();
+                        }
+                        // Tự động tải lại sau 1.5s để cập nhật toàn bộ bảng và badge
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    }
+                }
+            })
+            .catch(err => console.error("Lỗi đồng bộ real-time:", err));
+    }
+
+    // Polling mỗi 3 giây
+    setInterval(pollKitchenUpdates, 3000);
+</script>
+{% endblock %}

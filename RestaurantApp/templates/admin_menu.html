@@ -1,0 +1,164 @@
+{% extends 'layout/base.html' %}
+{% block title %}Quản lý thực đơn{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h3 class="text-dark mb-0">YÊU CẦU 4: QUẢN LÝ THỰC ĐƠN</h3>
+        <p class="text-muted mb-0 small">Thêm mới, chỉnh sửa thông tin hoặc xóa món ăn trong thực đơn của nhà hàng.</p>
+    </div>
+    {% if edit_dish %}
+    <a href="/admin-menu" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i> Chuyển sang Thêm món mới
+    </a>
+    {% endif %}
+</div>
+
+{% if success_msg %}
+<div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
+    <i class="bi bi-check-circle-fill me-2"></i>{{ success_msg }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+{% if err_msg %}
+<div class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ err_msg }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+<div class="row g-4">
+    <!-- Cột trái: Form Thêm / Sửa món -->
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-header {% if edit_dish %}bg-warning text-dark{% else %}bg-dark text-white{% endif %} fw-bold d-flex justify-content-between align-items-center">
+                <span>
+                    {% if edit_dish %}
+                        <i class="bi bi-pencil-square me-1"></i> Cập nhật món ăn
+                    {% else %}
+                        <i class="bi bi-plus-circle me-1"></i> Thêm món ăn mới
+                    {% endif %}
+                </span>
+                {% if edit_dish %}
+                <span class="badge bg-dark text-white">#ID {{ edit_dish.id }}</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <form method="POST" action="/admin-menu">
+                    {% if edit_dish %}
+                    <input type="hidden" name="dish_id" value="{{ edit_dish.id }}">
+                    {% endif %}
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Mã món ăn <span class="text-danger">*</span>:</label>
+                        <input type="text" name="code" class="form-control" value="{{ edit_dish.code if edit_dish else '' }}" placeholder="VD: LAU01, NUOC02..." required>
+                        <small class="text-muted">Mã món là duy nhất trên hệ thống.</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Tên món ăn <span class="text-danger">*</span>:</label>
+                        <input type="text" name="name" class="form-control" value="{{ edit_dish.name if edit_dish else '' }}" placeholder="VD: Lẩu Thái hải sản" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Đơn giá (VNĐ) <span class="text-danger">*</span>:</label>
+                        <div class="input-group">
+                            <input type="number" name="price" class="form-control" value="{{ edit_dish.price|int if edit_dish else '' }}" min="1" step="1000" placeholder="VD: 250000" required>
+                            <span class="input-group-text">VNĐ</span>
+                        </div>
+                        <small class="text-muted">Giá món phải lớn hơn 0 (> 0).</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Nhóm món (Category) <span class="text-danger">*</span>:</label>
+                        <select name="category_id" class="form-select" required>
+                            <option value="" disabled {% if not edit_dish %}selected{% endif %}>-- Chọn nhóm món hợp lệ --</option>
+                            {% for c in categories %}
+                            <option value="{{ c.id }}" {% if edit_dish and edit_dish.category_id == c.id %}selected{% endif %}>
+                                {{ c.name }} {% if c.is_kitchen %}(Bếp chế biến){% else %}(Phục vụ trực tiếp){% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn {% if edit_dish %}btn-warning text-dark{% else %}btn-dark{% endif %} w-100 fw-bold shadow-sm py-2">
+                        {% if edit_dish %}
+                            <i class="bi bi-save me-1"></i> Lưu cập nhật món
+                        {% else %}
+                            <i class="bi bi-plus-lg me-1"></i> Thêm vào thực đơn
+                        {% endif %}
+                    </button>
+
+                    {% if edit_dish %}
+                    <a href="/admin-menu" class="btn btn-outline-secondary w-100 mt-2">
+                        Hủy chế độ sửa
+                    </a>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cột phải: Bảng danh sách món ăn -->
+    <div class="col-md-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-secondary text-white fw-bold d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-list-ul me-1"></i> Danh sách thực đơn hiện tại ({{ dishes|length }} món)</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped text-center align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 50px;">STT</th>
+                                <th style="width: 100px;">Mã món</th>
+                                <th class="text-start">Tên món ăn</th>
+                                <th style="width: 140px;">Đơn giá</th>
+                                <th style="width: 160px;">Nhóm món</th>
+                                <th style="width: 150px;">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if dishes and dishes|length > 0 %}
+                                {% for d in dishes %}
+                                <tr {% if edit_dish and edit_dish.id == d.id %}class="table-warning"{% endif %}>
+                                    <td>{{ loop.index }}</td>
+                                    <td><span class="badge bg-secondary font-monospace">{{ d.code }}</span></td>
+                                    <td class="text-start fw-semibold text-dark">{{ d.name }}</td>
+                                    <td class="fw-bold text-success">{{ "{:,.0f}".format(d.price) }} đ</td>
+                                    <td>
+                                        <span class="badge {% if d.category.is_kitchen %}bg-danger-subtle text-danger border border-danger{% else %}bg-primary-subtle text-primary border border-primary{% endif %}">
+                                            {{ d.category.name }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="/admin-menu?edit_id={{ d.id }}" class="btn btn-outline-warning" title="Sửa món">
+                                                <i class="bi bi-pencil"></i> Sửa
+                                            </a>
+                                            <form method="POST" action="/admin-menu/delete/{{ d.id }}" class="d-inline" onsubmit="return confirm('Bạn có chắc chắn muốn xóa món [{{ d.name }}] khỏi thực đơn?');">
+                                                <button type="submit" class="btn btn-outline-danger" title="Xóa món">
+                                                    <i class="bi bi-trash"></i> Xóa
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-muted py-4">Chưa có món ăn nào trong thực đơn.</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer bg-light text-muted small py-2">
+                * Ràng buộc: Mã món ăn là duy nhất, Đơn giá phải > 0, Nhóm món phải thuộc nhóm hợp lệ.
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

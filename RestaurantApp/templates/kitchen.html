@@ -1,0 +1,108 @@
+{% extends 'layout/base.html' %}
+{% block title %}Bếp chế biến{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h3 class="text-danger mb-0">YÊU CẦU 2: BẾP NHẬN DANH SÁCH CHẾ BIẾN</h3>
+        <p class="text-muted mb-0 small">Bếp chỉ hiển thị các món thuộc nhóm cần chế biến trong các đơn chưa hoàn tất (đang nấu).</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-secondary" id="auto-refresh-timer">Tự động làm mới sau: <span id="countdown">5</span>s</span>
+        <button class="btn btn-outline-primary btn-sm" onclick="location.reload()">
+            🔄 Làm mới ngay
+        </button>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+        <span class="fw-bold fs-5">📋 Danh sách món ăn chờ chế biến ({{ pending_items|length }})</span>
+        <span class="badge bg-light text-dark">Thời gian thực</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped text-center align-middle mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th style="width: 50px;">STT</th>
+                        <th style="width: 110px;">Bàn số</th>
+                        <th>Tên món ăn</th>
+                        <th style="width: 140px;">Nhóm món</th>
+                        <th style="width: 100px;">Số lượng</th>
+                        <th>Ghi chú của khách</th>
+                        <th style="width: 150px;">Thời gian gọi</th>
+                        <th style="width: 130px;">Trạng thái</th>
+                        <th style="width: 160px;">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if pending_items and pending_items|length > 0 %}
+                        {% for item in pending_items %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td>
+                                <span class="badge bg-primary fs-6">
+                                    Bàn {{ item.order.table.name if (item.order and item.order.table) else ("%02d"|format(item.order.table_id)) }}
+                                </span>
+                            </td>
+                            <td class="text-start fw-bold text-dark">{{ item.dish.name }}</td>
+                            <td><span class="badge bg-info text-dark">{{ item.dish.category.name }}</span></td>
+                            <td><span class="badge bg-danger rounded-pill fs-6 px-3">{{ item.quantity }}</span></td>
+                            <td class="text-start fst-italic text-secondary">
+                                {% if item.note %}
+                                    <span class="text-danger fw-semibold">⚠️ {{ item.note }}</span>
+                                {% else %}
+                                    <span class="text-muted">Không có</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ item.order.created_date.strftime('%H:%M:%S') if item.order and item.order.created_date else '' }}</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-warning text-dark px-2 py-1">
+                                    🔥 Đang nấu
+                                </span>
+                            </td>
+                            <td>
+                                <form method="POST" action="/kitchen" class="m-0">
+                                    <input type="hidden" name="detail_id" value="{{ item.id }}">
+                                    <button type="submit" class="btn btn-success btn-sm w-100 fw-bold">
+                                        ✓ Hoàn tất món
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="9" class="py-5 text-center text-muted">
+                                <div class="my-3">
+                                    <h5 class="text-secondary">🎉 Hiện tại không có món ăn nào đang chờ chế biến!</h5>
+                                    <p class="small text-muted mb-0">Khi có bàn gọi món cần nấu, danh sách sẽ tự động hiển thị tại đây.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer bg-light text-muted small py-2">
+        * Quy định: Khi bếp bấm <strong>Xác nhận hoàn tất</strong>, trạng thái món sẽ chuyển sang Hoàn tất và thông báo sẽ ngay lập tức được gửi tới màn hình phục vụ tại bàn.
+    </div>
+</div>
+
+<script>
+    // Cơ chế tự động làm mới (polling/auto-refresh) giữa Bếp và Bàn
+    let countdown = 5;
+    const countdownEl = document.getElementById('countdown');
+    setInterval(() => {
+        countdown--;
+        if (countdownEl) countdownEl.innerText = countdown;
+        if (countdown <= 0) {
+            window.location.reload();
+        }
+    }, 1000);
+</script>
+{% endblock %}
